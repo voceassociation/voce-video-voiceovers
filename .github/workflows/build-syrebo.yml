@@ -1,0 +1,31 @@
+name: Syrebo Video Build
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download video
+        run: |
+          curl -fL --retry 3 -o video.mp4 https://static.metricool.com/planner/202611/7090850-file-12558990847346384164.mp4
+
+      - name: Download voice
+        run: |
+          curl -fL --retry 3 -o voice.mp3 https://s5.ttsmaker-file.com/file/2026-11-19-061859_107247.mp3
+
+      - name: Mux with ffmpeg
+        run: |
+          ffmpeg -y -i video.mp4 -i voice.mp3 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 160k -af apad -t 30 -movflags +faststart VOCE_Syrebo_Alayna_Votche.mp4
+
+      - name: Create Release
+        run: |
+          gh release create syrebo-alayna-v1 VOCE_Syrebo_Alayna_Votche.mp4 --title 'VOCE Syrebo — Alayna voice' --notes 'Original VOCE educational Syrebo overview with VOCE Alayna narration.'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
