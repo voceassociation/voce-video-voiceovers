@@ -1,0 +1,32 @@
+name: Build Video
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Download assets
+        run: |
+          curl -fL https://static.metricool.com/planner/202611/7090850-file-41472490982863244.mp4 -o video.mp4
+          curl -fL https://s5.ttsmaker-file.com/file/2026-11-19-060237_107706.mp3 -o voice.mp3
+
+      - name: Build video
+        run: ffmpeg -y -i video.mp4 -i voice.mp3 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 160k -af apad -t 36 -movflags +faststart VOCE_GeneMind_Alayna_Votche.mp4
+
+      - name: Create Release
+        run: |
+          gh release create genemind-alayna-v1 VOCE_GeneMind_Alayna_Votche.mp4 --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
