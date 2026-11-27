@@ -1,0 +1,44 @@
+name: VOCE Syrebo Kokoro
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - voce_syrebo_kokoro.py
+      - .github/workflows/voce-syrebo-kokoro.yml
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install free Kokoro and ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+          pip install "kokoro>=0.9.4" "soundfile>=0.12" numpy
+      - name: Generate Heart voice and narrated Syrebo
+        run: python voce_syrebo_kokoro.py
+      - name: Validate output
+        run: |
+          test -s VOCE_Syrebo_Kokoro_Votche.mp4
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nw=1 VOCE_Syrebo_Kokoro_Votche.mp4 | grep codec_name=aac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VOCE-Syrebo-Kokoro-Heart
+          path: |
+            VOCE_Syrebo_Kokoro_Votche.mp4
+            VOCE_Syrebo_Kokoro_Votche_Narration.wav
+      - name: Make downloadable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view syrebo-kokoro-v3 >/dev/null 2>&1; then
+            gh release upload syrebo-kokoro-v3 VOCE_Syrebo_Kokoro_Votche.mp4 VOCE_Syrebo_Kokoro_Votche_Narration.wav --clobber
+          else
+            gh release create syrebo-kokoro-v3 VOCE_Syrebo_Kokoro_Votche.mp4 VOCE_Syrebo_Kokoro_Votche_Narration.wav --title "VOCE Syrebo - Kokoro Heart" --notes "VOCE educational overview with Kokoro Heart narration."
+          fi
