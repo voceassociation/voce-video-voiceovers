@@ -1,0 +1,48 @@
+name: VOCE Syrebo Kokoro Production
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/voce-syrebo-kokoro-repair.yml
+permissions:
+  contents: write
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install zero-cost speech dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+          pip install 'kokoro>=0.9.4' soundfile numpy
+      - name: Restore Python syntax damaged by GitHub web editor
+        run: |
+          python -c 'from pathlib import Path; p=Path("voce_syrebo_kokoro.py"); s=p.read_text(); s=s.replace("import umpy as p", "import numpy as np").replace("( p.asarray", "( np.asarray").replace("&lt;", chr(60)); p.write_text(s)'
+          python -m py_compile voce_syrebo_kokoro.py
+      - name: Render VOCE Syrebo with Kokoro Heart and Votche phonetics
+        run: python voce_syrebo_kokoro.py
+      - name: Confirm final mp4 contains a real AAC audio track
+        run: |
+          test -s VOCE_Syrebo_Kokoro_Votche.mp4
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nw=1 VOCE_Syrebo_Kokoro_Votche.mp4 | grep codec_name=aac
+          test -s VOCE_Syrebo_Kokoro_Votche_Narration.wav
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VOCE-Syrebo-Kokoro-Heart-Final
+          path: |
+            VOCE_Syrebo_Kokoro_Votche.mp4
+            VOCE_Syrebo_Kokoro_Votche_Narration.wav
+      - name: Publish MP4 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view syrebo-kokoro-v4 >/dev/null 2>&1; then
+            gh release upload syrebo-kokoro-v4 VOCE_Syrebo_Kokoro_Votche.mp4 VOCE_Syrebo_Kokoro_Votche_Narration.wav --clobber
+          else
+            gh release create syrebo-kokoro-v4 VOCE_Syrebo_Kokoro_Votche.mp4 VOCE_Syrebo_Kokoro_Votche_Narration.wav --title 'VOCE Syrebo Kokoro Heart' --notes 'VOCE independent educational video with Kokoro Heart narration.'
+          fi
